@@ -22,6 +22,27 @@
 // Multiply by 250 to get the uptime in microseconds.
 volatile uint64_t g_Uptime;
 
+uint64_t TimeUtils::Uptime()
+{
+  return g_Uptime;
+}
+
+void TimeUtils::Init()
+{
+#ifndef USE_ARDUINO_TIMER
+  g_Uptime = 0x0123456789abcdef;
+  TCCR0A = _BV(WGM01); // Set CTC mode
+  OCR0A = 250; // Interrupt every 250 us
+#ifdef _AVR_IOTNX5_H_
+  TIMSK = _BV(OCIE0A); // Enable interrupt for maching TCNT0 against OCR0A.
+#else
+  TIMSK0 = _BV(OCIE0A); // Enable interrupt for maching TCNT0 against OCR0A.
+#endif
+  sei();
+  TCCR0B = _BV(CS01); // Set prescaling to divide by 8
+#endif
+}
+
 Stopwatch::Stopwatch()
 {}
 
@@ -61,22 +82,6 @@ uint32_t Stopwatch::GetTime()
 }
 
 /**********************************************************************/
-
-void InitTimeUtils()
-{
-#ifndef USE_ARDUINO_TIMER
-  g_Uptime = 0;
-  TCCR0A = _BV(WGM01); // Set CTC mode
-  OCR0A = 250; // Interrupt every 250 us
-#ifdef _AVR_IOTNX5_H_
-  TIMSK = _BV(OCIE0A); // Enable interrupt for maching TCNT0 against OCR0A.
-#else
-  TIMSK0 = _BV(OCIE0A); // Enable interrupt for maching TCNT0 against OCR0A.
-#endif
-  sei();
-  TCCR0B = _BV(CS01); // Set prescaling to divide by 8
-#endif
-}
 
 #ifndef Arduino_h
 ISR(TIMER0_COMPA_vect)

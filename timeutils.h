@@ -39,6 +39,13 @@ class Stopwatch
     uint32_t GetTime();
 };
 
+class TimeUtils
+{
+  public:
+    static uint64_t Uptime();
+    static void Init();
+};
+
 void InitTimeUtils();
 
 #endif
