@@ -237,6 +237,7 @@ typedef struct {
 
 pinref_t GetPinRef(pinid_t pin);
 pininfo_t PinInfo(uint16_t pinId, uint8_t pcIntId);
+pininfo_t PinInfo(uint16_t pinId);
 
 void SetPinOutput(pinref_t pin);
 bool IsPinOutput(pinref_t pin);
@@ -249,5 +250,8 @@ bool ReadBidiPin(pinref_t pin);
 void SetPinHigh(pinref_t pin);
 bool ReadPin(pinref_t pin);
 void TogglePin(pinref_t pin);
+
+void MaskEnablePinChangeInt(pininfo_t pin);
+void MaskDisablePinChangeInt(pininfo_t pin);
 
 #endif

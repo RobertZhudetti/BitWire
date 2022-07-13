@@ -38,6 +38,11 @@ pininfo_t PinInfo(uint16_t pinId, uint8_t pcIntId)
   return result;
 }
 
+pininfo_t PinInfo(uint16_t pinId)
+{
+  return PinInfo(pinId, 0);
+}
+
 void SetPinOutput(pinref_t pin)
 {
 	*(pin.ddrReg) |= pin.bitValue;
@@ -86,3 +91,16 @@ bool ReadPin(pinref_t pin)
 {
   return (*(pin.pinReg) & pin.bitValue) == pin.bitValue;
 }
+
+void MaskEnablePinChangeInt(pininfo_t pin)
+{
+  int regidx = (pin.pcIntId >> 4) - 1;
+  *(PCMSKREGISTERS[regidx]) |= _BV((pin.pcIntId & 0x0F) - 1);
+}
+
+void MaskDisablePinChangeInt(pininfo_t pin)
+{
+  int regidx = (pin.pcIntId >> 4);
+  *(PCMSKREGISTERS[regidx]) &= ~_BV((pin.pcIntId & 0x0F) - 1);
+}
+
