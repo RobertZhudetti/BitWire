@@ -25,11 +25,13 @@
   used outside as well as in an arduino environment.
 */
 
+/*
 extern "C" {
   #include <stdlib.h>
   #include <string.h>
   #include <inttypes.h>
 }
+*/
 
 #include <UMPins/UMPins.h>
 #include <avr/interrupt.h>
@@ -37,20 +39,20 @@ extern "C" {
 #include "timeutils.h"
 #include "BitWire.h"
 
-void (*resetFunc) (void) = 0; //declare reset function @ address 0
+extern void (*resetFunc) (void); //declare reset function @ address 0
 
 // Constructors ////////////////////////////////////////////////////////////////
 
 BitWire::BitWire()
 {
-  _rxBuffer [BUFFER_LENGTH];
+  //_rxBuffer [BITWIRE_BUFFER_LENGTH];
   _rxBufferIndex = 0;
   _rxBufferLength = 0;
 
   _address = 0;
 
   _targetAddress = 0;
-  _txBuffer [BUFFER_LENGTH];
+  //_txBuffer [BITWIRE_BUFFER_LENGTH];
   _txBufferIndex = 0;
   _txBufferLength = 0;
 
@@ -72,7 +74,7 @@ void BitWire::begin(pinid_t sda, pinid_t scl)
   /* The LOW output value in the registers won't get changed when switching the pins
    * to input. However, it's better to switch them to inputs first to avoid high current
    * bus contention as much as possible. Keeping the LOW value on the PORT register
-   * will enable us to use external pullup registers (the PORT register controls the
+   * will enable us to use external pullup resistors (the PORT register controls the
    * pullups during input mode) to pull the lines high and switching a pin to
    * output will automatically pull the line low because the 0 value is still stored
    * in the register.
@@ -190,8 +192,8 @@ uint8_t BitWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddres
   }
 
   // clamp to buffer length
-  if (quantity > BUFFER_LENGTH)
-    quantity = BUFFER_LENGTH;
+  if (quantity > BITWIRE_BUFFER_LENGTH)
+    quantity = BITWIRE_BUFFER_LENGTH;
 
   // perform blocking read into buffer
   uint8_t read = twiReadFrom(address, _rxBuffer, quantity, sendStop);
@@ -280,7 +282,7 @@ size_t BitWire::write(uint8_t data)
 {
   // in master transmitter mode
   // don't bother if buffer is full
-  if (_txBufferLength >= BUFFER_LENGTH) {
+  if (_txBufferLength >= BITWIRE_BUFFER_LENGTH) {
     setWriteError(ENOBUFS);
     return 0;
   }
@@ -520,55 +522,59 @@ void BitWire::twiSendStop()
 void BitWire::twiSendByte(uint8_t data)
 {
   twiSCLLow();
-  delayNops(_clockPulseLengthNOPS);
   uint8_t i = 8;
+  uint8_t lastbit = 0;
+  if (ReadBidiPin(_pin_sda))
+    lastbit = 0x80;
+  
+  uint8_t bit = 0;
   while (i > 0)
   {
-    if ((data & 0x80) == 0x80)
-      twiSDAHigh();
-    else
-      twiSDALow();
-
     delayNops(_clockPulseLengthNOPS);
+
+    bit = (data & 0x80);
+    if (bit != lastbit)
+    {
+      if (bit)
+        twiSDAHigh();
+      else
+        twiSDALow();
+      delayNops(_clockPulseLengthNOPS);
+      lastbit = bit;
+    }
 
     twiSCLHigh();
     delayNops(_clockPulseLengthNOPS);
-
     twiSCLLow();
-    delayNops(_clockPulseLengthNOPS);
 
     i--;
     data = data << 1;
   }
+  delayNops(_clockPulseLengthNOPS);
   twiSDAHigh();
 }
 
 bool BitWire::twiReadByte(volatile uint8_t *buf)
 {
-  if (ReadBidiPin(_pin_scl))
-  {
-    twiSCLLow();
-    delayNops(_clockPulseLengthNOPS);
-  }
-  if (!ReadBidiPin(_pin_sda))
-  {
-    twiSDAHigh();
-    delayNops(_clockPulseLengthNOPS);
-  }
+  twiSCLLow();
+  twiSDAHigh();
+  delayNops(_clockPulseLengthNOPS);
+
   uint8_t rxByte = 0;
 
   twiSCLHigh();
-  if (!twiWaitClockHigh(_timeout))
-  {
-    twiSCLHigh();
-    delayNops(_clockPulseLengthNOPS);
-    twiSDALow();
-    delayNops(_clockPulseLengthNOPS);
-    twiSDAHigh();
-    _lastError = EBITWIRE_TIMEOUT;
-    _seenTimeout = true;
-    return false;
-  }
+  if (!ReadBidiPin(_pin_scl))
+    if (!twiWaitClockHigh(_timeout))
+    {
+      twiSCLHigh();
+      delayNops(_clockPulseLengthNOPS);
+      twiSDALow();
+      delayNops(_clockPulseLengthNOPS);
+      twiSDAHigh();
+      _lastError = EBITWIRE_TIMEOUT;
+      _seenTimeout = true;
+      return false;
+    }
 
   for (uint8_t bit = 0x80; bit > 0; bit = bit >> 1)
   {
@@ -598,7 +604,7 @@ bool BitWire::twiWaitClockHigh(int32_t timeout)
   sw.Start();
   while (!ReadBidiPin(_pin_scl))
   {
-    if (sw.GetTime() > timeout)
+    if (sw.GetTime() > (uint32_t)timeout)
       return false;
   }
   return true;
@@ -607,7 +613,7 @@ bool BitWire::twiWaitClockHigh(int32_t timeout)
 bool BitWire::twiReadAck()
 {
   twiSCLHigh();
-  delayNops(_clockPulseLengthNOPS);
+  //delayNops(_clockPulseLengthNOPS);
 
   // Waiting for the SCL line to go high makes it possible for a slave device
   // to use clock stretching: if it needs more time to process input from the
@@ -671,7 +677,7 @@ uint8_t BitWire::twiReadFrom(uint8_t address, volatile uint8_t *rxBuffer, uint8_
     if (!twiReadByte(rxBuffer + i))
       return i;
 
-    delayNops(_clockPulseLengthNOPS);
+    //delayNops(_clockPulseLengthNOPS);
 
     twiSendAck();
     i++;
@@ -843,7 +849,7 @@ void BitWire::twiInterruptsOn()
 
 void BitWire::ClearSlaveBuffers()
 {
-	for (uint8_t i = 0; i < BUFFER_LENGTH; i++)
+  for (uint8_t i = 0; i < BITWIRE_BUFFER_LENGTH; i++)
     _slaveRxBuffer[i] = 0;
   _slaveRxBufEnd = 0;
   _slaveRxBufBegin = 0;
@@ -856,9 +862,7 @@ void BitWire::ClearSlaveByteBuffer()
 
 bool BitWire::MatchReceivedAddress()
 {
-	PORTD = (PORTD & 0x3) | (_slaveByteBuffer << 2);
-	PORTB &= 0xFE;
-	return _slaveByteBuffer == _address;
+  return _slaveByteBuffer == _address;
 }
 
 void BitWire::StretchClock()
@@ -881,11 +885,8 @@ void BitWire::StoreDataBit(uint8_t bitPos, bool bitValue)
 
 bool BitWire::StoreDataByte()
 {
-  if (_slaveRxBufEnd >= BUFFER_LENGTH)
+  if (_slaveRxBufEnd >= BITWIRE_BUFFER_LENGTH)
     return false;
-
-	PORTD = (PORTD & 0x3) | (_slaveByteBuffer << 2);
-	PORTB &= 0xFE;
 
   _slaveRxBuffer[_slaveRxBufEnd++] = _slaveByteBuffer;
   return true;
@@ -916,7 +917,7 @@ void BitWire::AddressMatchEvent()
     if (!ack)
     {
       twiSDAHigh();
-      delayNops(2);
+      __asm__ __volatile__ ("nop");
       twiSCLHigh();
       SetNextState(BWI2CSTATE_BUSBUSY);
       return;
@@ -924,17 +925,15 @@ void BitWire::AddressMatchEvent()
   }
 
   twiSDALow();
-  delayNops(2);
+  __asm__ __volatile__ ("nop");
   twiSCLHigh();
 
   if (_slaveReadNotWriteBit)
   {
     onRequestService();
     CopySlaveTxBuffer();
-  }
-
-  if (_slaveReadNotWriteBit)
     SetNextState(BWI2CSTATE_AddrRdAck);
+  }
   else
     SetNextState(BWI2CSTATE_AddrWrAck);
 }
@@ -948,7 +947,7 @@ void BitWire::CopySlaveTxBuffer()
     return;
   }
 
-  memcpy((void *)_slaveTxBuffer, (void *)_txBuffer, BUFFER_LENGTH);
+  memcpy((void *)_slaveTxBuffer, (void *)_txBuffer, BITWIRE_BUFFER_LENGTH);
   _slaveTxBufIndex = 0;
   _slaveTxBufLength = _txBufferLength;
 }
@@ -983,15 +982,6 @@ void BitWire::removeByteFromSlaveTxBuffer()
 
 void BitWire::SetNextState(uint8_t nextState)
 {
-  /* DEBUG */
-  if ((nextState < 0x10) | (nextState > 0x20))
-  {
-    PORTD = (PORTD & 0x3) | (nextState << 2);
-    PORTB |= 0x1;
-    delayNops(10);
-  }
-  /* */
-
   _slaveBusState = nextState;
   switch (nextState)
   {
@@ -1055,29 +1045,38 @@ void BitWire::HandleInterrupt()
     // When BUSIDLE    and * while SCL LO -> BUSBUSY
     // When BUSIDLE    and SDA Dn while SCL HI -> Start
     case BWI2CSTATE_BUSIDLE:
+      if (scl && sdaDn)
+      {
+        SetNextState(BWI2CSTATE_Start);
+        return;
+      }
       if (!scl)
         SetNextState(BWI2CSTATE_BUSBUSY);
-      else if (scl && sdaDn);
-        SetNextState(BWI2CSTATE_Start);
       break;
 
     // When BUSBUSY    and SDA Up while SCL HI -> BUSIDLE // Stop condition
     // When BUSBUSY    and SDA Dn while SCL HI -> Start // Start condition
     case BWI2CSTATE_BUSBUSY:
+      if (sdaDn && scl) // Start condition
+      {
+        SetNextState(BWI2CSTATE_Start);
+        return;
+      }
       if (sdaUp && scl) // Stop condition
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sdaDn && scl) // Start condition
-        SetNextState(BWI2CSTATE_Start);
       break;
 
     // When Start      enter { ClearByteBuffer() }
     // When Start      and SDA Up -> BUSIDLE
     // When Start      and SCL Dn -> PreAddr6
     case BWI2CSTATE_Start:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreAddr6);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreAddr6);
       break;
 
     // When PreAddr6   and SCL Up -> Addr6     { StoreAddressBit(6) }
@@ -1086,8 +1085,9 @@ void BitWire::HandleInterrupt()
       {
         StoreAddressBit(6, sda);
         SetNextState(BWI2CSTATE_Addr6);
+        return;
       }
-      else if (sclDn)
+      if (sclDn)
         // This situation shouldn't occur. However, we're getting stuck here somehow..
         resetFunc();
       else if (scl)
@@ -1097,10 +1097,13 @@ void BitWire::HandleInterrupt()
     // When Addr6      and SDA Up -> BUSIDLE
     // When Addr6      and SCL Dn -> PreAddr5
     case BWI2CSTATE_Addr6:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreAddr5);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreAddr5);
       break;
 
     // When PreAddr5   and SCL Up -> Addr5     { StoreAddressBit(5) }
@@ -1109,8 +1112,9 @@ void BitWire::HandleInterrupt()
       {
         StoreAddressBit(5, sda);
         SetNextState(BWI2CSTATE_Addr5);
+        return;
       }
-      else if (sclDn)
+      if (sclDn)
         resetFunc();
       else if (scl)
         resetFunc();
@@ -1119,10 +1123,13 @@ void BitWire::HandleInterrupt()
     // When Addr5      and SDA Up -> BUSIDLE
     // when Addr5      and SCL Dn -> PreAddr4
     case BWI2CSTATE_Addr5:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreAddr4);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreAddr4);
       break;
 
     // When PreAddr4   and SCL Up -> Addr4     { StoreAddressBit(4) }
@@ -1137,10 +1144,13 @@ void BitWire::HandleInterrupt()
     // When Addr4      and SDA Up -> BUSIDLE
     // When Addr4      and SCL Dn -> PreAddr3
     case BWI2CSTATE_Addr4:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreAddr3);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreAddr3);
       break;
 
     // When PreAddr3   and SCL Up -> Addr3     { StoreAddressBit(3) }
@@ -1155,10 +1165,13 @@ void BitWire::HandleInterrupt()
     // When Addr3      and SDA Up -> BUSIDLE
     // When Addr3      and SCL Dn -> PreAddr2
     case BWI2CSTATE_Addr3:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreAddr2);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreAddr2);
       break;
 
     // When PreAddr2   and SCL Up -> Addr2     { StoreAddressBit(2) }
@@ -1173,10 +1186,13 @@ void BitWire::HandleInterrupt()
     // When Addr2      and SDA Up -> BUSIDLE
     // When Addr2      and SCL Dn -> PreAddr1
     case BWI2CSTATE_Addr2:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreAddr1);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreAddr1);
       break;
 
     // When PreAddr1   and SCL Up -> Addr1     { StoreAddressBit(1) }
@@ -1191,10 +1207,13 @@ void BitWire::HandleInterrupt()
     // When Addr1      and SDA Up -> BUSIDLE
     // When Addr1      and SCL Dn -> PreAddr0
     case BWI2CSTATE_Addr1:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreAddr0);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreAddr0);
       break;
 
     // When PreAddr0   and SCL Up -> Addr0     { StoreAddressBit(0) }
@@ -1209,10 +1228,13 @@ void BitWire::HandleInterrupt()
     // When Addr0      and SDA Up -> BUSIDLE
     // When Addr0      and SCL Dn -> PreRW
     case BWI2CSTATE_Addr0:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreRW);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      if (sclDn)
-        SetNextState(BWI2CSTATE_PreRW);
       break;
 
     // When PreRW      and SCL Up -> ReadWrite { StoreReadNotWriteBit() }
@@ -1227,10 +1249,13 @@ void BitWire::HandleInterrupt()
     // When ReadWrite  and SDA Up -> BUSIDLE
     // When ReadWrite  and SCL Dn -> PreAddrAck
     case BWI2CSTATE_ReadWrite:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreAddrAck);
+        break;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreAddrAck);
       break;
 
     // When PreAddrAck enter { if (MatchReceivedAddress()) { StretchClock(); AddressMatchEvent(); } else SetNextState(BUSBUSY); }
@@ -1247,6 +1272,7 @@ void BitWire::HandleInterrupt()
       {
         twiSDAHigh();
         SetNextState(BWI2CSTATE_PreWrData7);
+        break;
       }
       if (sdaUp and scl)
       {
@@ -1269,18 +1295,23 @@ void BitWire::HandleInterrupt()
     // When WrData7    and SDA Dn -> Start        { SlaveReceiveEvent(); } // Restart condition
     // When WrData7    and SCL Dn -> PreWrData6
     case BWI2CSTATE_WrData7:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreWrData6);
+        return;
+      }
       if (sdaUp)
       {
         SlaveReceiveEvent();
         SetNextState(BWI2CSTATE_BUSIDLE);
+        return;
       }
-      else if (sdaDn)
+      if (sdaDn)
       {
         SlaveReceiveEvent();
         SetNextState(BWI2CSTATE_Start);
+        return;
       }
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreWrData6);
       break;
 
     // When PreWrData6 and SCL Up -> WrData6      { StoreDataBit(6) }
@@ -1295,10 +1326,13 @@ void BitWire::HandleInterrupt()
     // When WrData6    and SDA Up -> BUSIDLE
     // When WrData6    and SCL Dn -> PreWrData5
     case BWI2CSTATE_WrData6:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreWrData5);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreWrData5);
       break;
 
     // When PreWrData5 and SCL Up -> WrData5      ( StoreDataBit(5) }
@@ -1313,10 +1347,13 @@ void BitWire::HandleInterrupt()
     // When WrData5    and SDA Up -> BUSIDLE
     // When WrData5    and SCL Dn -> PreWrData4
     case BWI2CSTATE_WrData5:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreWrData4);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreWrData4);
       break;
 
     // When PreWrData4 and SCL Up -> WrData4      { StoreDataBit(4) }
@@ -1331,10 +1368,13 @@ void BitWire::HandleInterrupt()
     // When WrData4    and SDA Up -> BUSIDLE
     // When WrData4    and SCL Dn -> PreWrData3
     case BWI2CSTATE_WrData4:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreWrData3);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreWrData3);
       break;
 
     // When PreWrData3 and SCL Up -> WrData3      { StoreDataBit(3) }
@@ -1349,10 +1389,13 @@ void BitWire::HandleInterrupt()
     // When WrData3    and SDA Up -> BUSIDLE
     // When WrData3    and SCL Dn -> PreWrData2
     case BWI2CSTATE_WrData3:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreWrData2);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreWrData2);
       break;
 
     // When PreWrData2 and SCL Up -> WrData2      { StoreDataBit(2) }
@@ -1367,10 +1410,13 @@ void BitWire::HandleInterrupt()
     // When WrData2    and SDA Up -> BUSIDLE
     // When WrData2    and SCL Dn -> PreWrData1
     case BWI2CSTATE_WrData2:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreWrData1);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreWrData1);
       break;
 
     // When PreWrData1 and SCL Up -> WrData1      { StoreDataBit(1) }
@@ -1385,10 +1431,13 @@ void BitWire::HandleInterrupt()
     // When WrData1    and SDA Up -> BUSIDLE
     // When WrData1    and SCL Dn -> PreWrData0
     case BWI2CSTATE_WrData1:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreWrData0);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreWrData0);
       break;
 
     // When PreWrData0 and SCL Up -> WrData0      { StoreDataBit(0) }
@@ -1403,10 +1452,13 @@ void BitWire::HandleInterrupt()
     // When WrData0    and SDA Up -> BUSIDLE
     // When WrData0    and SCL Dn -> PreDataWrAck
     case BWI2CSTATE_WrData0:
+      if (sclDn)
+      {
+        SetNextState(BWI2CSTATE_PreDataWrAck);
+        return;
+      }
       if (sdaUp)
         SetNextState(BWI2CSTATE_BUSIDLE);
-      else if (sclDn)
-        SetNextState(BWI2CSTATE_PreDataWrAck);
       break;
 
     // When PreDataWrAck enter { StretchClock(); if (StoreDataByte()) SDALow(); ReleaseSCL(); }

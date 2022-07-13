@@ -32,14 +32,14 @@
 #include <string.h>
 #include <UMPins/UMPins.h>
 
-#define BUFFER_LENGTH 32
+#define BITWIRE_BUFFER_LENGTH 20
 
 // WIRE_HAS_END means Wire has end()
 #define WIRE_HAS_END 1
 
-#define EBITWIRE_TIMEOUT 1;
-#define EBITWIRE_NODEV   2;
-#define EBITWIRE_NACK    3;
+#define EBITWIRE_TIMEOUT 1
+#define EBITWIRE_NODEV   2
+#define EBITWIRE_NACK    3
 
 class BitWire
 {
@@ -50,11 +50,11 @@ class BitWire
     uint16_t _clockPulseLengthNOPS;
     uint8_t _address;
   
-    volatile uint8_t _rxBuffer[BUFFER_LENGTH];
+    volatile uint8_t _rxBuffer[BITWIRE_BUFFER_LENGTH];
     volatile uint8_t _rxBufferIndex;
     volatile uint8_t _rxBufferLength;
 
-    uint8_t _txBuffer[BUFFER_LENGTH];
+    uint8_t _txBuffer[BITWIRE_BUFFER_LENGTH];
     uint8_t _targetAddress;
     uint8_t _txBufferIndex;
     uint8_t _txBufferLength;
@@ -81,10 +81,10 @@ class BitWire
   private:
     /* Slave mode members */
     uint8_t _slaveByteBuffer;
-    volatile uint8_t _slaveRxBuffer[BUFFER_LENGTH];
+    volatile uint8_t _slaveRxBuffer[BITWIRE_BUFFER_LENGTH];
     volatile uint8_t _slaveRxBufBegin;
     volatile uint8_t _slaveRxBufEnd;
-    volatile uint8_t _slaveTxBuffer[BUFFER_LENGTH];
+    volatile uint8_t _slaveTxBuffer[BITWIRE_BUFFER_LENGTH];
     volatile uint8_t _slaveTxBufIndex;
     volatile uint8_t _slaveTxBufLength;
     bool _slaveReadNotWriteBit;
