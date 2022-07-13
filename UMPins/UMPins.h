@@ -30,6 +30,8 @@ typedef uint16_t pinid_t;
 #  include <UMPins/avr/UMPins_m2560.h>
 #elif defined (__AVR_ATmega328P__)
 #  include <UMPins/avr/UMPins_m328p.h>
+#elif defined (__AVR_ATtiny85__)
+#  include <UMPins/avr/UMPins_t85.h>
 #else
 #  error "Could not find a pin list for target microcontroller."
 #endif
@@ -218,24 +220,6 @@ volatile uint8_t * const PIN_REGISTERS[] = {
 #endif
 #ifdef PINL
 	&PINL,
-#else
-	(uint8_t *)0,
-#endif
-};
-
-volatile uint8_t * const PCMSKREGISTERS[] = {
-#ifdef PCMSK0
-	&PCMSK0,
-#else
-	(uint8_t *)0,
-#endif
-#ifdef PCMSK1
-	&PCMSK1,
-#else
-	(uint8_t *)0,
-#endif
-#ifdef PCMSK1
-	&PCMSK1,
 #else
 	(uint8_t *)0,
 #endif
