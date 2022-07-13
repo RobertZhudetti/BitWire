@@ -235,19 +235,25 @@ typedef struct {
   uint8_t pcIntId;
 } pininfo_t;
 
+pinref_t GetNullPinRef();
 pinref_t GetPinRef(pinid_t pin);
 pininfo_t PinInfo(uint16_t pinId, uint8_t pcIntId);
 pininfo_t PinInfo(uint16_t pinId);
 
+void SetPinOutput_v(volatile pinref_t &pin);
 void SetPinOutput(pinref_t pin);
 bool IsPinOutput(pinref_t pin);
 void SetPinInput(pinref_t pin);
+void SetPinInput_v(volatile pinref_t &pin);
 void SetPinLow(pinref_t pin);
+void SetPinLow_v(volatile pinref_t &pin);
+
 /* Reads the current value of the pin, whether the pin is configured
  * as input or output.
  */
 bool ReadBidiPin(pinref_t pin);
 void SetPinHigh(pinref_t pin);
+void SetPinHigh_v(volatile pinref_t &pin);
 bool ReadPin(pinref_t pin);
 void TogglePin(pinref_t pin);
 

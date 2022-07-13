@@ -19,6 +19,16 @@
 
 #include <UMPins/UMPins.h>
 
+pinref_t GetNullPinRef()
+{
+  pinref_t result;
+  result.ddrReg = 0;
+  result.portReg = 0;
+  result.pinReg = 0;
+  result.bitValue = 0;
+  return result;
+}
+
 pinref_t GetPinRef(pinid_t pin)
 {
 	pinref_t result;
@@ -48,6 +58,11 @@ void SetPinOutput(pinref_t pin)
 	*(pin.ddrReg) |= pin.bitValue;
 }
 
+void SetPinOutput_v(volatile pinref_t &pin)
+{
+  *(pin.ddrReg) |= pin.bitValue;
+}
+
 bool IsPinOutput(pinref_t pin)
 {
   return (*(pin.ddrReg) & pin.bitValue) == pin.bitValue;
@@ -58,7 +73,17 @@ void SetPinInput(pinref_t pin)
   *(pin.ddrReg) &= ~(pin.bitValue);
 }
 
+void SetPinInput_v(volatile pinref_t &pin)
+{
+  *(pin.ddrReg) &= ~(pin.bitValue);
+}
+
 void SetPinLow(pinref_t pin)
+{
+  *(pin.portReg) &= ~(pin.bitValue);
+}
+
+void SetPinLow_v(volatile pinref_t &pin)
 {
   *(pin.portReg) &= ~(pin.bitValue);
 }
@@ -77,6 +102,11 @@ bool ReadBidiPin(pinref_t pin)
 void SetPinHigh(pinref_t pin)
 {
 	*(pin.portReg) |= pin.bitValue;
+}
+
+void SetPinHigh_v(volatile pinref_t &pin)
+{
+  *(pin.portReg) |= pin.bitValue;
 }
 
 void TogglePin(pinref_t pin)
