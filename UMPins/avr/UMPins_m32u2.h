@@ -56,7 +56,6 @@ etc..
 #define PIN_PC0_id 0x0301
 #define PIN_PC1_id 0x0302
 #define PIN_PC2_id 0x0303
-//#define PIN_PC3_id 0x0304
 #define PIN_PC4_id 0x0305
 #define PIN_PC5_id 0x0306
 #define PIN_PC6_id 0x0307
@@ -72,10 +71,40 @@ etc..
 #define PIN_PD6_id 0x0407
 #define PIN_PD7_id 0x0408
 
-#define PCINT2_id 0x14
-#define PCINT3_id 0x15
+#define PCINT0_id  0x11
+#define PCINT1_id  0x12
+#define PCINT2_id  0x13
+#define PCINT3_id  0x14
+#define PCINT4_id  0x15
+#define PCINT5_id  0x16
+#define PCINT6_id  0x17
+#define PCINT7_id  0x18
+#define PCINT8_id  0x21
+#define PCINT9_id  0x22
+#define PCINT10_id 0x23
+#define PCINT11_id 0x24
+#define PCINT12_id 0x25
 
+#define PININFO_PB0 PinInfo(PIN_PB0_id, PCINT0_id)
+#define PININFO_PB1 PinInfo(PIN_PB1_id, PCINT1_id)
 #define PININFO_PB2 PinInfo(PIN_PB2_id, PCINT2_id)
 #define PININFO_PB3 PinInfo(PIN_PB3_id, PCINT3_id)
+#define PININFO_PB4 PinInfo(PIN_PB4_id, PCINT3_id)
+#define PININFO_PB5 PinInfo(PIN_PB5_id, PCINT3_id)
+#define PININFO_PB6 PinInfo(PIN_PB6_id, PCINT3_id)
+#define PININFO_PB7 PinInfo(PIN_PB7_id, PCINT3_id)
+
+#define PININFO_PC0 PinInfo(PIN_PC0_id)
+#define PININFO_PC1 PinInfo(PIN_PC1_id)
+#define PININFO_PC2 PinInfo(PIN_PC2_id, PCINT11_id)
+#define PININFO_PC4 PinInfo(PIN_PC4_id, PCINT10_id)
+#define PININFO_PC5 PinInfo(PIN_PC5_id, PCINT9_id)
+#define PININFO_PC6 PinInfo(PIN_PC6_id, PCINT8_id)
+#define PININFO_PC7 PinInfo(PIN_PC7_id)
+
+volatile uint8_t * const PCMSKREGISTERS[] = {
+	&PCMSK0,
+	&PCMSK1,
+};
 
 #endif
