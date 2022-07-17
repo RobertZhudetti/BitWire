@@ -94,7 +94,7 @@ void SetPinLow_v(volatile pinref_t &pin)
 bool ReadBidiPin(pinref_t pin)
 {
   if (IsPinOutput(pin))
-    return *(pin.portReg) &= ~(pin.bitValue);
+    return (*(pin.portReg) & pin.bitValue) == pin.bitValue;
   else
     return (*(pin.pinReg) & pin.bitValue) == pin.bitValue;
 }
